@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KBO 응원팀 선택 가이드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: 이 SPA는 사용자가 자신의 선호도에 따라 팀을 발견하는 과정을 돕기 위해 설계되었습니다. 1) '나에게 맞는 팀 찾기' 필터 섹션을 통해 연고지, 팀 성향 등 핵심적인 기준을 먼저 제시하여 사용자의 선택을 유도합니다. 2) 필터 결과는 'KBO 10개 구단' 카드 섹션에 실시간으로 반영되어 즉각적인 피드백을 제공합니다. 3) 각 팀 카드를 클릭하면 상세 정보 모달이 나타나, 사용자가 원할 때만 깊이 있는 정보를 탐색할 수 있도록 합니다(점진적 정보 공개). 4) 마지막으로 'KBO 리그 한눈에 보기' 차트 섹션을 통해 리그 전체의 역사를 시각적으로 요약하여 제공합니다. 이 구조는 사용자가 방대한 정보에 압도되지 않고, 자신의 기준에 따라 능동적으로 팀을 탐색하며 KBO에 대한 이해를 점진적으로 넓혀갈 수 있도록 설계되었습니다. -->
+    <!-- Visualization & Content Choices: 1) 팀 우승 횟수 비교 -> 목표: 팀의 역사적 성공도를 직관적으로 비교. -> 시각화: 가로 막대 차트. -> 상호작용: 막대 호버 시 툴팁으로 정확한 횟수 표시. -> 정당성: 여러 팀의 정량적 데이터를 비교하는 데 가장 효과적인 시각화 방식. -> 라이브러리: Chart.js (Canvas). 2) 팀 필터링 -> 목표: 사용자의 선호(연고지, 성향)에 맞는 팀을 쉽게 찾도록 지원. -> 표현 방식: 버튼 기반 필터. -> 상호작용: 버튼 클릭 시 JS로 팀 카드 목록을 동적으로 필터링하여 보여줌. -> 정당성: 사용자의 직접적인 참여를 유도하여 탐색 과정을 더 흥미롭게 만듦. -> 라이브러리: Vanilla JS, Tailwind CSS. 3) 상세 정보 -> 목표: 기본 화면을 깔끔하게 유지하며 상세 정보 제공. -> 표현 방식: 클릭 시 나타나는 모달창. -> 상호작용: 팀 카드 클릭 시 해당 팀의 데이터로 채워진 모달이 열림. -> 정당성: 점진적 정보 공개 원칙에 따라 사용자가 필요할 때만 정보를 깊게 탐색할 수 있도록 함. -> 라이브러리: Vanilla JS, Tailwind CSS. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #F8F5F2; /* Warm Neutral Background */
+        }
+        .team-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .team-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .filter-btn {
+            transition: all 0.2s ease;
+        }
+        .filter-btn.active {
+            transform: scale(1.05);
+        }
+        .chart-container {
+            position: relative;
+            margin: auto;
+            height: 450px;
+            width: 100%;
+            max-width: 800px;
+            max-height: 500px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 500px;
+            }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-white shadow-md py-6">
+        <div class="container mx-auto px-6 text-center">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-[#0D2C4D]">KBO 응원팀 선택 가이드</h1>
+            <p class="mt-2 text-lg text-gray-600">KBO 리그에 첫발을 내딛는 당신을 위한 완벽한 안내서</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-6 py-12">
+
+        <!-- Filters Section -->
+        <section id="filters" class="mb-12 p-8 bg-white rounded-2xl shadow-lg">
+            <h2 class="text-3xl font-bold text-center mb-2 text-[#0D2C4D]">⚾ 나에게 맞는 팀 찾아보기</h2>
+            <p class="text-center text-gray-600 mb-8">몇 가지 질문에 답하고 당신의 성향에 꼭 맞는 팀을 찾아보세요.</p>
+
+            <div class="space-y-6">
+                <div>
+                    <h3 class="font-bold text-xl mb-3 text-gray-700">1. 당신과 가까운 연고지는 어디인가요?</h3>
+                    <div id="region-filters" class="flex flex-wrap gap-3">
+                        <button data-filter-type="region" data-filter-value="all" class="filter-btn px-4 py-2 bg-[#0D2C4D] text-white rounded-full shadow-sm active">전체</button>
+                        <button data-filter-type="region" data-filter-value="서울" class="filter-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300">서울</button>
+                        <button data-filter-type="region" data-filter-value="인천" class="filter-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300">인천</button>
+                        <button data-filter-type="region" data-filter-value="수원" class="filter-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300">수원</button>
+                        <button data-filter-type="region" data-filter-value="대전" class="filter-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300">대전</button>
+                        <button data-filter-type="region" data-filter-value="광주" class="filter-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300">광주</button>
+                        <button data-filter-type="region" data-filter-value="대구" class="filter-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300">대구</button>
+                        <button data-filter-type="region" data-filter-value="부산" class="filter-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300">부산</button>
+                        <button data-filter-type="region" data-filter-value="창원" class="filter-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300">창원</button>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-bold text-xl mb-3 text-gray-700">2. 어떤 스타일의 팀을 원하시나요?</h3>
+                    <div id="style-filters" class="flex flex-wrap gap-3">
+                        <button data-filter-type="style" data-filter-value="all" class="filter-btn px-4 py-2 bg-[#0D2C4D] text-white rounded-full shadow-sm active">전체</button>
+                        <button data-filter-type="style" data-filter-value="명문" class="filter-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300">🏆 전통의 명가</button>
+                        <button data-filter-type="style" data-filter-value="성장" class="filter-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300">🚀 신흥 강호</button>
+                        <button data-filter-type="style" data-filter-value="서사" class="filter-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300">🔥 투혼의 언더독</button>
+                        <button data-filter-type="style" data-filter-value="열정" class="filter-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300">🎤 열광적 응원</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Team Profiles Section -->
+        <section id="teams">
+             <h2 class="text-3xl font-bold text-center mb-8 text-[#0D2C4D]">KBO 10개 구단</h2>
+            <div id="team-cards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Team cards will be dynamically inserted here -->
+            </div>
+        </section>
+        
+        <!-- Data Dashboard Section -->
+        <section id="data-dashboard" class="mt-16">
+            <h2 class="text-3xl font-bold text-center mb-8 text-[#0D2C4D]">KBO 리그 한눈에 보기</h2>
+            <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+                <h3 class="text-2xl font-bold mb-4
+                text-center">역대 한국시리즈 우승 횟수</h3>
+                <p class="text-center text-gray-600 mb-6">어떤 팀이 가장 많은 우승 트로피를 들어올렸을까요? 팀의 역사를 만든 영광의 순간들을 확인해보세요.</p>
+                <div class="chart-container">
+                    <canvas id="championshipsChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-[#0D2C4D] text-white mt-16 py-6">
+        <div class="container mx-auto px-6 text-center">
+            <p>KBO 응원팀 선택 가이드 | Interactive SPA by Gemini</p>
+        </div>
+    </footer>
+
+    <!-- Modal -->
+    <div id="team-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden">
+        <div id="modal-content" class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative transform transition-all duration-300 scale-95 opacity-0">
+            <!-- Modal content will be dynamically inserted here -->
+        </div>
+    </div>
+
+
+<script>
+const teamsData = [
+    {
+        id: 'doosan',
+        name: '두산 베어스',
+        engName: 'Doosan Bears',
+        founded: 1982,
+        region: '서울',
+        home: '잠실 야구장',
+        championships: 6,
+        style: ['명문'],
+        cheerStyle: ['체계'],
+        colors: { primary: '#131230', secondary: '#ffffff' },
+        mascot: { name: '철웅이', desc: '강인한 사이보그 로봇 곰 마스코트' },
+        summary: 'KBO 원년 우승팀. 끈끈한 조직력과 선수 육성 시스템(화수분 야구)으로 유명한 꾸준한 강팀.',
+        history: `1982년 OB 베어스로 창단하여 리그 초대 챔피언에 등극했다. 1999년 두산 베어스로 팀명을 변경한 후에도 2015-2019년 왕조를 구축하는 등 KBO를 대표하는 강팀으로 군림하고 있다.`,
+        stars: '박철순, 김형석, 타이론 우즈, 김동주, 양의지, 김재환',
+        retiredNumbers: [
+            { number: 21, player: '박철순', reason: `'불사조'라 불린 원년 우승의 전설적인 에이스` },
+            { number: 54, player: '김영신', reason: `불의의 사고로 유명을 달리한 유망주 포수를 기리는 KBO 최초의 영구결번` }
+        ],
+        fanCulture: `‘베어스 가족’이라는 강한 유대감을 바탕으로 체계적인 응원을 펼친다. 특히 8회에 다같이 외치는 ‘두산 박수’ 응원이 유명하며, 팀의 꾸준한 호성적으로 젊은 팬층의 유입이 활발하다.`
+    },
+    {
+        id: 'lg',
+        name: 'LG 트윈스',
+        engName: 'LG Twins',
+        founded: 1982,
+        region: '서울',
+        home: '잠실 야구장',
+        championships: 3,
+        style: ['서사'],
+        cheerStyle: ['열정', '체계'],
+        colors: { primary: '#C30452', secondary: '#000000' },
+        mascot: { name: '럭키 & 스타', desc: '신바람을 일으키는 로봇 마스코트 듀오' },
+        summary: '서울의 자존심. 29년의 기다림 끝에 2023년 우승을 차지하며 팬들에게 감동의 서사를 선물했다.',
+        history: `1982년 MBC 청룡으로 창단, 1990년 LG에 인수되며 전성기를 맞았다. 90년대 ‘신바람 야구’로 큰 인기를 끌었으나 이후 오랜 암흑기를 겪었다. 2023년, 29년 만의 통합 우승으로 기나긴 기다림에 마침표를 찍었다.`,
+        stars: '김용수, 이병규, 박용택, 류지현, 오지환, 김현수',
+        retiredNumbers: [
+            { number: 9, player: '이병규', reason: `'적토마', 팀의 암흑기를 지킨 위대한 좌타자` },
+            { number: 41, player: '김용수', reason: `'노송', 두 번의 우승을 이끈 전설적인 마무리 투수` },
+            { number: 33, player: '박용택', reason: `'LG의 심장', KBO 최다 안타 기록을 보유한 원클럽맨` }
+        ],
+        fanCulture: `서울 연고의 오랜 역사만큼 ‘골수팬’이 많다. ‘무적 LG’를 외치며 오랜 암흑기에도 변치 않는 지지를 보냈으며, 2023년 우승으로 그 충성심이 폭발적인 환희로 바뀌었다. ‘사랑한다 LG’ 떼창은 잠실구장을 울리는 상징적인 응원이다.`
+    },
+    {
+        id: 'ssg',
+        name: 'SSG 랜더스',
+        engName: 'SSG Landers',
+        founded: 2000,
+        region: '인천',
+        home: '인천 SSG 랜더스필드',
+        championships: 5,
+        style: ['성장'],
+        cheerStyle: ['새롭'],
+        colors: { primary: '#CE0E2D', secondary: '#FFFFFF' },
+        mascot: { name: '랜디', desc: '용맹함과 충성심의 상징, 카네코르소' },
+        summary: '인천의 새로운 주인. 신세계그룹의 공격적인 투자와 함께 ‘와이어 투 와이어’ 우승 등 새로운 역사를 쓰고 있다.',
+        history: `2000년 SK 와이번스로 창단, 'SK 왕조' 시대를 열며 강팀으로 군림했다. 2021년 신세계그룹이 인수하며 SSG 랜더스로 재창단, 2022년 KBO 역사상 최초의 '와이어 투 와이어' 통합 우승이라는 대기록을 세웠다.`,
+        stars: '박경완, 김광현, 최정, 추신수, 김강민',
+        retiredNumbers: [
+            { number: 26, player: '박경완', reason: `'역대 최고의 포수'로 꼽히는 SK 왕조의 안방마님` }
+        ],
+        fanCulture: `신세계그룹 인수 후 ‘프론티어’ 정신을 바탕으로 새로운 팬 문화를 구축하고 있다. MLB급의 세련된 마케팅과 팬 친화적인 구장 운영으로 ‘야구는 엔터테인먼트’라는 인식을 확산시키고 있다.`
+    },
+    {
+        id: 'kt',
+        name: 'kt wiz',
+        engName: 'kt wiz',
+        founded: 2013,
+        region: '수원',
+        home: '수원 KT 위즈 파크',
+        championships: 1,
+        style: ['성장'],
+        cheerStyle: ['새롭'],
+        colors: { primary: '#000000', secondary: '#FFFFFF' },
+        mascot: { name: '빅 & 또리', desc: '승리를 부르는 마법사, 귀여운 도깨비 듀오' },
+        summary: '수원의 마법사 군단. 창단 8년 만에 통합 우승을 달성하며 KBO에 새로운 바람을 일으킨 막내 구단.',
+        history: `2013년 창단한 10번째 구단. 창단 초기에는 최하위에 머물렀으나, 체계적인 육성과 과감한 투자로 빠르게 성장하여 2021년 창단 첫 통합 우승이라는 마법 같은 신화를 썼다.`,
+        stars: '박병호, 고영표, 소형준, 강백호',
+        retiredNumbers: [],
+        fanCulture: `KT그룹의 ICT 기술을 접목한 ‘빅 테인먼트’를 표방하며 팬들에게 새로운 야구 관람 경험을 제공한다. 젊고 활기찬 팬덤을 중심으로 빠르게 성장하고 있으며, ‘마법의 성’ 응원가는 팀의 정체성을 보여준다.`
+    },
+    {
+        id: 'kia',
+        name: 'KIA 타이거즈',
+        engName: 'KIA Tigers',
+        founded: 1982,
+        region: '광주',
+        home: '광주 기아 챔피언스 필드',
+        championships: 12,
+        style: ['명문'],
+        cheerStyle: ['열정'],
+        colors: { primary: '#EA0029', secondary: '#000000' },
+        mascot: { name: '호걸이', desc: '강력한 타이거즈 왕조의 상징, 호랑이' },
+        summary: 'KBO 리그 최다 우승(V12)에 빛나는 불멸의 명가. 한국시리즈 진출 시 패배가 없는 ‘우승 DNA’를 자랑한다.',
+        history: `1982년 해태 타이거즈로 창단하여 1980~90년대 리그를 지배하는 '타이거즈 왕조'를 건설했다. KBO 역사상 유일하게 두 자릿수 우승을 기록했으며, 한국시리즈 불패 신화는 팀의 자부심이다.`,
+        stars: '선동열, 이종범, 이대진, 양현종, 최형우, 김도영',
+        retiredNumbers: [
+            { number: 18, player: '선동열', reason: `'국보급 투수', 리그를 압도했던 해태 왕조의 상징` },
+            { number: 7, player: '이종범', reason: `'바람의 아들', 공수주를 모두 갖춘 전천후 슈퍼스타` }
+        ],
+        fanCulture: `광주/호남 지역의 절대적인 지지를 받으며, 팬들의 자부심이 매우 높다. ‘남행열차’를 떼창하는 모습은 타이거즈 팬덤의 정체성을 상징하며, 승리에 대한 강한 열망으로 뭉쳐 있다.`
+    },
+    {
+        id: 'samsung',
+        name: '삼성 라이온즈',
+        engName: 'Samsung Lions',
+        founded: 1982,
+        region: '대구',
+        home: '대구 삼성 라이온즈 파크',
+        championships: 8,
+        style: ['명문'],
+        cheerStyle: ['체계'],
+        colors: { primary: '#0072BC', secondary: '#FFFFFF' },
+        mascot: { name: '블레오 패밀리', desc: '푸른 피의 사자 가족' },
+        summary: '푸른 피의 사자 군단. KBO 최초의 통합 4연패 대기록을 달성한 2010년대의 절대 강자.',
+        history: `1982년 원년 구단으로 출발하여 오랜 기간 강팀의 면모를 유지했다. 특히 2011년부터 2014년까지 정규시즌-한국시리즈 통합 4연패라는 전무후무한 '삼성 왕조'를 건설하며 KBO 역사를 새로 썼다.`,
+        stars: '이만수, 양준혁, 이승엽, 오승환, 구자욱',
+        retiredNumbers: [
+            { number: 10, player: '양준혁', reason: `'양신', 꾸준함의 대명사이자 KBO를 대표하는 타격 기계` },
+            { number: 22, player: '이만수', reason: `KBO 최초의 홈런왕, 원년 멤버이자 최고의 공격형 포수` },
+            { number: 36, player: '이승엽', reason: `'국민 타자', 아시아 홈런 신기록을 세운 살아있는 전설` }
+        ],
+        fanCulture: `대구/경북 지역의 강력한 팬심을 기반으로 전국적인 인기를 자랑한다. ‘왕조’ 시절의 영광을 기억하는 팬들이 많으며, ‘푸른 심장아 뛰어라’ 같은 응원가에서 자부심이 묻어난다.`
+    },
+    {
+        id: 'lotte',
+        name: '롯데 자이언츠',
+        engName: 'Lotte Giants',
+        founded: 1982,
+        region: '부산',
+        home: '사직 야구장',
+        championships: 2,
+        style: ['서사'],
+        cheerStyle: ['열정'],
+        colors: { primary: '#041E42', secondary: '#DA291C' },
+        mascot: { name: '누리 & 아라', desc: '부산의 상징, 갈매기' },
+        summary: '부산의 심장, KBO 최고의 열광적인 팬덤을 자랑하는 팀. 승패를 넘어선 야구에 대한 순수한 열정이 가득하다.',
+        history: `1982년 원년 구단으로 참가. 1984년 최동원의 4승 신화와 함께 첫 우승을 차지했고 1992년 두 번째 우승을 기록했다. 오랜 우승 공백에도 불구하고 KBO에서 가장 뜨거운 팬덤을 유지하고 있다.`,
+        stars: '최동원, 박정태, 손아섭, 이대호, 전준우',
+        retiredNumbers: [
+            { number: 11, player: '최동원', reason: `'무쇠팔', 1984년 한국시리즈 4승 신화의 불멸의 영웅` },
+            { number: 10, player: '이대호', reason: `'조선의 4번 타자', KBO를 평정한 거인의 상징` }
+        ],
+        fanCulture: `사직구장은 ‘세계에서 가장 큰 노래방’이라 불릴 만큼 독특하고 열광적인 응원 문화를 자랑한다. 신문지 응원, 봉다리 응원, ‘부산 갈매기’ 떼창은 롯데 팬덤의 상징이다. 팀 성적과 무관하게 야구 자체를 즐기는 팬 문화가 특징.`
+    },
+    {
+        id: 'hanwha',
+        name: '한화 이글스',
+        engName: 'Hanwha Eagles',
+        founded: 1986,
+        region: '대전',
+        home: '한화생명 이글스 파크',
+        championships: 1,
+        style: ['서사'],
+        cheerStyle: ['열정'],
+        colors: { primary: '#FF6600', secondary: '#000000' },
+        mascot: { name: '수리', desc: '불꽃 투혼의 상징, 독수리' },
+        summary: '대전의 자존심, 불꽃 투혼의 팀. 성적을 초월한 팬들의 맹목적인 사랑, ‘보살 팬’으로 유명하다.',
+        history: `1986년 빙그레 이글스로 창단, 다이너마이트 타선을 앞세워 강팀으로 군림했다. 1999년 팀 역사상 처음이자 마지막 우승을 차지했다. 긴 암흑기 속에서도 팬들의 충성심은 더욱 단단해졌다.`,
+        stars: '장종훈, 송진우, 정민철, 김태균, 류현진, 노시환',
+        retiredNumbers: [
+            { number: 35, player: '장종훈', reason: `'연습생 신화'의 주인공, KBO 최초의 40홈런 타자` },
+            { number: 21, player: '송진우', reason: `KBO 통산 최다승, 최다 이닝, 최다 탈삼진의 '송골매'` },
+            { number: 23, player: '정민철', reason: `이글스의 심장이었던 '영원한 에이스'` },
+            { number: 52, player: '김태균', reason: `팀의 암흑기를 지탱한 KBO 최고의 우타자` }
+        ],
+        fanCulture: `팀 성적이 좋지 않아도 경기장을 가득 메우는 열정적인 팬덤으로 유명하다. ‘나는 행복합니다’라는 응원가는 역설적으로 팀에 대한 애정을 보여주는 상징이 되었다. 패배에도 좌절하지 않고 응원하는 모습 때문에 ‘보살 팬’이라는 별명을 얻었다.`
+    },
+    {
+        id: 'nc',
+        name: 'NC 다이노스',
+        engName: 'NC Dinos',
+        founded: 2011,
+        region: '창원',
+        home: '창원 NC 파크',
+        championships: 1,
+        style: ['성장'],
+        cheerStyle: ['새롭'],
+        colors: { primary: '#315288', secondary: '#FFFFFF' },
+        mascot: { name: '단디 & 쎄리', desc: '경상도 사투리 이름의 귀여운 공룡 듀오' },
+        summary: '창원의 새로운 지배자. 데이터 야구와 혁신적인 팬 서비스로 KBO에 돌풍을 일으킨 신생 강호.',
+        history: `2011년 9번째 구단으로 창단, 2013년 1군에 합류했다. 체계적인 데이터 분석과 공격적인 선수 영입으로 빠르게 강팀으로 성장했으며, 2020년 창단 첫 통합 우승을 차지했다.`,
+        stars: '나성범, 에릭 테임즈, 양의지, 박민우, 구창모',
+        retiredNumbers: [],
+        fanCulture: `모기업 엔씨소프트의 영향을 받아 게임처럼 즐기는 팬 문화, 데이터 기반의 소통 등 혁신적인 시도를 많이 한다. 창원을 중심으로 한 ‘마산 아재’들의 열정적인 응원과 젊은 팬층의 세련된 감성이 공존한다.`
+    },
+    {
+        id: 'kiwoom',
+        name: '키움 히어로즈',
+        engName: 'Kiwoom Heroes',
+        founded: 2008,
+        region: '서울',
+        home: '고척 스카이돔',
+        championships: 0,
+        style: ['서사', '성장'],
+        cheerStyle: ['체계'],
+        colors: { primary: '#57000B', secondary: '#FFFFFF' },
+        mascot: { name: '턱돌이', desc: '독특한 매력의 영웅 마스코트' },
+        summary: '서울의 영웅들. KBO 최고의 선수 육성 시스템 ‘히어로즈 사관학교’를 통해 스타들을 끊임없이 배출한다.',
+        history: `2008년 우리 히어로즈로 창단, KBO 유일의 네이밍 스폰서십으로 운영되는 구단이다. 재정적 한계 속에서도 뛰어난 선수 육성 능력으로 포스트시즌 단골 손님으로 자리매김했다. 아직 우승은 없지만 언제나 우승을 위협하는 강팀이다.`,
+        stars: '강정호, 박병호, 서건창, 김하성, 이정후',
+        retiredNumbers: [],
+        fanCulture: `최고의 선수들을 키워내 메이저리그나 다른 팀으로 보내는 경우가 많아 ‘성장’의 기쁨과 ‘이별’의 아픔을 함께 겪는 독특한 팬덤이다. 선수 한 명 한 명의 스토리에 깊이 몰입하며 응원하는 경향이 강하다.`
+    }
+];
+
+const activeFilters = {
+    region: 'all',
+    style: 'all'
+};
+
+function renderTeamCards() {
+    const container = document.getElementById('team-cards-container');
+    container.innerHTML = '';
+    const filteredTeams = teamsData.filter(team => {
+        const regionMatch = activeFilters.region === 'all' || team.region === activeFilters.region;
+        const styleMatch = activeFilters.style === 'all' || team.style.includes(activeFilters.style) || team.cheerStyle.includes(activeFilters.style);
+        return regionMatch && styleMatch;
+    });
+
+    if (filteredTeams.length === 0) {
+        container.innerHTML = `<div class="md:col-span-2 lg:col-span-3 text-center py-12">
+            <p class="text-2xl font-bold text-gray-500">🥲</p>
+            <p class="text-xl text-gray-500 mt-2">선택한 조건에 맞는 팀이 없습니다.</p>
+            <p class="text-gray-400">다른 필터를 선택해보세요.</p>
+        </div>`;
+        return;
+    }
+
+    filteredTeams.forEach(team => {
+        const card = document.createElement('div');
+        card.className = 'team-card bg-white rounded-2xl overflow-hidden shadow-lg cursor-pointer';
+        card.style.borderTop = `8px solid ${team.colors.primary}`;
+        card.onclick = () => openModal(team.id);
+
+        card.innerHTML = `
+            <div class="p-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-bold" style="color:${team.colors.primary}">${team.region} | ${team.engName}</p>
+                        <h3 class="text-2xl font-extrabold text-gray-900">${team.name}</h3>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-3xl font-black" style="color:${team.colors.primary}">🏆 ${team.championships}</p>
+                        <p class="text-xs text-gray-500">우승 횟수</p>
+                    </div>
+                </div>
+                <p class="text-gray-600 mt-4 h-20">${team.summary}</p>
+                <div class="mt-4 flex justify-between items-center text-sm text-gray-500">
+                    <span>${team.home}</span>
+                    <span>since ${team.founded}</span>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function handleFilterClick(event) {
+    const button = event.target.closest('button');
+    if (!button) return;
+
+    const { filterType, filterValue } = button.dataset;
+    activeFilters[filterType] = filterValue;
+
+    document.querySelectorAll(`button[data-filter-type="${filterType}"]`).forEach(btn => {
+        btn.classList.remove('active', 'bg-[#0D2C4D]', 'text-white');
+        btn.classList.add('bg-gray-200', 'text-gray-700');
+    });
+
+    button.classList.add('active', 'bg-[#0D2C4D]', 'text-white');
+    button.classList.remove('bg-gray-200', 'text-gray-700');
+    
+    renderTeamCards();
+}
+
+function openModal(teamId) {
+    const team = teamsData.find(t => t.id === teamId);
+    if (!team) return;
+
+    const modal = document.getElementById('team-modal');
+    const modalContent = document.getElementById('modal-content');
+
+    let retiredNumbersHtml = team.retiredNumbers.length > 0
+        ? team.retiredNumbers.map(rn => `
+            <div class="flex items-start space-x-4">
+                <div class="text-3xl font-black w-16 text-center" style="color: ${team.colors.primary}">${rn.number}</div>
+                <div>
+                    <p class="font-bold text-lg">${rn.player}</p>
+                    <p class="text-gray-600 text-sm">"${rn.reason}"</p>
+                </div>
+            </div>
+        `).join('')
+        : '<p class="text-gray-500">아직 영구결번 선수가 없습니다.</p>';
+
+    modalContent.innerHTML = `
+        <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-800 text-3xl z-10">&times;</button>
+        <div class="p-6 md:p-8" style="border-top: 10px solid ${team.colors.primary}; border-radius: 1rem 1rem 0 0;">
+            <div class="text-center mb-6">
+                <p class="font-bold text-lg" style="color:${team.colors.primary}">${team.region} | ${team.engName}</p>
+                <h2 class="text-4xl md:text-5xl font-extrabold">${team.name}</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="font-bold text-xl mb-2 border-b-2 border-gray-200 pb-1">HISTORY 📜</h4>
+                        <p class="text-gray-700 leading-relaxed">${team.history}</p>
+                    </div>
+                     <div>
+                        <h4 class="font-bold text-xl mb-2 border-b-2 border-gray-200 pb-1">FAN CULTURE 📣</h4>
+                        <p class="text-gray-700 leading-relaxed">${team.fanCulture}</p>
+                    </div>
+                </div>
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="font-bold text-xl mb-3 border-b-2 border-gray-200 pb-1">FRANCHISE STARS ⭐</h4>
+                        <p class="text-gray-700">${team.stars}</p>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-xl mb-3 border-b-2 border-gray-200 pb-1">RETIRED NUMBERS  легенда</h4>
+                        <div class="space-y-4">${retiredNumbersHtml}</div>
+                    </div>
+                     <div>
+                        <h4 class="font-bold text-xl mb-2 border-b-2 border-gray-200 pb-1">MASCOT 🧸</h4>
+                        <p class="text-gray-700"><span class="font-bold">${team.mascot.name}:</span> ${team.mascot.desc}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        modalContent.classList.remove('scale-95', 'opacity-0');
+        modalContent.classList.add('scale-100', 'opacity-100');
+    }, 10);
+}
+
+
+function closeModal() {
+    const modal = document.getElementById('team-modal');
+    const modalContent = document.getElementById('modal-content');
+    
+    modalContent.classList.add('scale-95', 'opacity-0');
+    modalContent.classList.remove('scale-100', 'opacity-100');
+    
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 300);
+}
+
+function renderChampionshipsChart() {
+    const ctx = document.getElementById('championshipsChart').getContext('2d');
+    const sortedTeams = [...teamsData].sort((a, b) => a.championships - b.championships);
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: sortedTeams.map(team => team.name),
+            datasets: [{
+                label: '우승 횟수',
+                data: sortedTeams.map(team => team.championships),
+                backgroundColor: sortedTeams.map(team => team.colors.primary),
+                borderColor: sortedTeams.map(team => team.colors.primary),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return ` ${context.raw}회 우승`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                       stepSize: 1
+                    }
+                },
+                y: {
+                    ticks: {
+                        font: {
+                            weight: 'bold'
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    renderTeamCards();
+    renderChampionshipsChart();
+    document.getElementById('region-filters').addEventListener('click', handleFilterClick);
+    document.getElementById('style-filters').addEventListener('click', handleFilterClick);
+
+    // Close modal on escape key
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeModal();
+        }
+    });
+});
+</script>
+
+</body>
+</html>
